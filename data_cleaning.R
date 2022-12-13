@@ -3,7 +3,7 @@ source("./src/functions.R")
 
 #load data
 
-load("./cohort.Rdata")
+load("./data/cohort.Rdata")
 
 #change hour indexing
 
