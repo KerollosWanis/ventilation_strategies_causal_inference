@@ -66,7 +66,7 @@ find_params_boosted_tree_model <- function(covariates_df, label_vector, nfold, t
                                            shrinkage_factor, bag_fraction, num_trees, num_cores, family='bernoulli'){
   
   params <- expand.grid(n.trees = num_trees, interaction.depth = tree_depth, 
-                        shrinkage = shrinkage_factor, bag_fraction = bag_fraction)
+                        shrinkage = shrinkage_factor, bag.fraction = bag_fraction)
   
   cv_test_logloss <- vector(length=nrow(params))
   
@@ -93,7 +93,7 @@ find_params_boosted_tree_model <- function(covariates_df, label_vector, nfold, t
         
         model <- 
           gbm(formula = Y~., data = data.frame(Y=label_vector[train_indices], covariates_df[train_indices, ,drop=FALSE]), 
-              bag.fraction = params$bag_fraction, 
+              bag.fraction = params$bag.fraction[iter], 
               n.trees = params$n.trees[iter], interaction.depth = params$interaction.depth[iter], shrinkage = params$shrinkage[iter],
               distribution = family)
         
@@ -127,7 +127,7 @@ estimate_prob_boosted_tree_model <- function(covariates_df, label_vector,
     gbm(
       formula = Y~., 
       data = data.frame(Y=label_vector, covariates_df),
-      bag.fraction = params$bag_fraction,
+      bag.fraction = params$bag.fraction,
       interaction.depth = params$interaction.depth,
       shrinkage = params$shrinkage,
       n.trees = params$n.trees,
@@ -247,7 +247,6 @@ weightsfnc_start_by_hour <- function(treatment,
                                      start_by_hour,
                                      min_hour,
                                      max_hour,
-                                     truncate_time,
                                      pooled_time_treatment_model = F,
                                      model_formula_vars,
                                      vars_to_lag,
@@ -437,7 +436,6 @@ weightsfnc_dont_start_until <- function(treatment,
                                         dont_start_until,
                                         min_hour,
                                         max_hour,
-                                        truncate_time,
                                         pooled_time_treatment_model = F,
                                         model_formula_vars,
                                         vars_to_lag,
@@ -858,9 +856,8 @@ resultsfnc <- function(data,
                        shrinkage_factor_trt = NULL,
                        num_trees_trt = NULL,
                        num_cores_trt = NULL,
-                       bag_fraction_trt = c(0.5),
+                       bag_fraction_trt = 0.5,
                        parametric_outcome_non_DR = NULL,
-                       trim_weights_quantile = 1,
                        vars_to_lag_outcome = NULL,
                        num_lags_outcome = NULL,
                        model_formula_vars_outcome = NULL,
@@ -869,7 +866,7 @@ resultsfnc <- function(data,
                        tree_depth_outcome = NULL,
                        shrinkage_factor_outcome = NULL,
                        num_trees_outcome = NULL,
-                       bag_fraction_outcome = c(0.5),
+                       bag_fraction_outcome = 0.5,
                        num_cores_outcome = NULL,
                        nsplits = NULL,
                        DR = T,
@@ -915,7 +912,6 @@ resultsfnc <- function(data,
                                start_by_hour = strategy_time,
                                min_hour = min_hour,
                                max_hour = max_hour,
-                               truncate_time = truncate_time,
                                pooled_time_treatment_model = pooled_time_treatment_model,
                                parametric_model = parametric_model_trt,
                                data = .,
@@ -941,7 +937,6 @@ resultsfnc <- function(data,
                                   dont_start_until = strategy_time,
                                   min_hour = min_hour,
                                   max_hour = max_hour,
-                                  truncate_time = truncate_time,
                                   pooled_time_treatment_model = pooled_time_treatment_model,
                                   parametric_model = parametric_model_trt,
                                   data = .,
@@ -956,9 +951,7 @@ resultsfnc <- function(data,
   
   data_wts <- data_wts %>%
     group_by(id) %>%
-    mutate(weight = cumprod(weight)) %>%
-    ungroup() %>%
-    mutate(weight = case_when(weight > quantile(weight, trim_weights_quantile) ~ quantile(weight, trim_weights_quantile), TRUE ~ weight))
+    mutate(weight = cumprod(weight))
   
   if (truncate_time & max_hour > strategy_time) {
     
@@ -1097,3 +1090,121 @@ compute_risk_difference <- function(results1, results2, CI_level) {
   
 }
 
+################################################################################
+################################################################################
+################################################################################
+
+trim_weights_compute_risk <- function(trim_weights_quantile, results, CI_level) {
+  
+  min_hour <- min(results$data$hour)
+  
+  trim_weights_quantile_value <- quantile((results$data %>% group_by(id) %>% filter(hour == max(hour)))$weight, trim_weights_quantile)
+  
+  results$data <- results$data %>% 
+    mutate(weight = case_when(weight > trim_weights_quantile_value ~ trim_weights_quantile_value, TRUE ~ weight))
+  
+  results$data <- results$data %>% 
+    mutate(D_k = weight*outcome_resid)
+  
+  results$data <- results$data %>% 
+    group_by(id) %>% 
+    mutate(cumsum_Dk = cumsum(D_k)) %>% 
+    ungroup()
+  
+  results$EIF_data <- data.frame(
+    EIF = (results$data %>% group_by(id) %>% filter(hour == max(hour)))$cumsum_Dk +
+      (results$data %>% group_by(id) %>% filter(hour == min_hour))$h_k,
+    split_ids = results$data %>% filter(hour==min_hour) %>% {.$split_ids}
+  )
+  
+  outcome = mean(results$EIF_data$EIF)
+  
+  se <- sqrt(
+    sum((results$EIF_data$EIF - outcome)^2) / (length(results$EIF_data$EIF)^2)
+  )
+  
+  CI = c(outcome + abs(qnorm((1-CI_level)/2))*se, 
+         outcome - abs(qnorm((1-CI_level)/2))*se)
+  
+  return(list(outcome = outcome,
+              se = se,
+              CI = CI))
+  
+}
+
+################################################################################
+################################################################################
+################################################################################
+
+trim_weights_compute_risk_difference <- function(trim_weights_quantile, results1, results2, CI_level) {
+  
+  min_hour <- min(results1$data$hour)
+  
+  trim_weights_quantile_value1 <- quantile((results1$data %>% group_by(id) %>% filter(hour == max(hour)))$weight, trim_weights_quantile)
+  trim_weights_quantile_value2 <- quantile((results2$data %>% group_by(id) %>% filter(hour == max(hour)))$weight, trim_weights_quantile)
+  
+  results1$data <- results1$data %>% 
+    mutate(weight = case_when(weight > trim_weights_quantile_value1 ~ trim_weights_quantile_value1, TRUE ~ weight))
+  
+  results2$data <- results2$data %>% 
+    mutate(weight = case_when(weight > trim_weights_quantile_value2 ~ trim_weights_quantile_value2, TRUE ~ weight))
+  
+  results1$data <- results1$data %>% 
+    mutate(D_k = weight*outcome_resid)
+  
+  results2$data <- results2$data %>% 
+    mutate(D_k = weight*outcome_resid)
+  
+  results1$data <- results1$data %>% 
+    group_by(id) %>% 
+    mutate(cumsum_Dk = cumsum(D_k)) %>% 
+    ungroup()
+  
+  results2$data <- results2$data %>% 
+    group_by(id) %>% 
+    mutate(cumsum_Dk = cumsum(D_k)) %>% 
+    ungroup()
+  
+  results1$EIF_data <- data.frame(
+    EIF = (results1$data %>% group_by(id) %>% filter(hour == max(hour)))$cumsum_Dk +
+      (results1$data %>% group_by(id) %>% filter(hour == min_hour))$h_k,
+    split_ids = results1$data %>% filter(hour==min_hour) %>% {.$split_ids}
+  )
+  
+  results2$EIF_data <- data.frame(
+    EIF = (results2$data %>% group_by(id) %>% filter(hour == max(hour)))$cumsum_Dk +
+      (results2$data %>% group_by(id) %>% filter(hour == min_hour))$h_k,
+    split_ids = results2$data %>% filter(hour==min_hour) %>% {.$split_ids}
+  )
+  
+  outcome <- mean(results1$EIF_data$EIF - results2$EIF_data$EIF)
+  
+  se <- sqrt(
+    sum(((results1$EIF_data$EIF - results2$EIF_data$EIF) - outcome)^2) / (length(results1$EIF_data$EIF)^2)
+  )
+  
+  CI = c(outcome + abs(qnorm((1-CI_level)/2))*se, 
+         outcome - abs(qnorm((1-CI_level)/2))*se)
+  
+  return(list(outcome = outcome,
+              se = se,
+              CI = CI))
+  
+}
+
+################################################################################
+################################################################################
+################################################################################
+
+compute_IPW_outcome <- function(data_wts){
+  
+  predicted <- data_wts %>% 
+    group_by(hour) %>% 
+    summarise(cond_surv = 1- (sum(outcome*weight) / sum(weight))) %>%
+    {data.frame(hour = min(data_wts$hour):max(data_wts$hour), CI = 1-cumprod(.$cond_surv))}
+  
+  
+  return(list(data = data_wts,
+              outcome = data.frame(CI=c(0,predicted[["CI"]])) %>% mutate(hour = min(data_wts$hour):(max(data_wts$hour)+1))))
+  
+}
