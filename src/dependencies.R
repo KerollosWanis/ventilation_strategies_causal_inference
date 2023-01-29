@@ -17,7 +17,8 @@ requiredPackages = c(
   'parallel',
   'SMUT',
   'fda',
-  'nlshrink'
+  'nlshrink',
+  'ggpubr'
 )
 for (p in requiredPackages) {
   if (!require(p, character.only = TRUE))
