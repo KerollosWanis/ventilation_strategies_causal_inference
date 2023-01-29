@@ -3,7 +3,7 @@ source("./src/functions.R")
 
 #load data
 
-load("./data/cohort.Rdata")
+load("./cohort.Rdata")
 
 #change hour indexing
 
@@ -13,15 +13,20 @@ cohort$hr <- cohort$hr + 1
 #to patients who were treated with high flow or noninvasive prior to baseline
 
 appropriate_baseline <- F
+MICU_only <- T
 
 first_hr <- 4
 max_fu <- 720
 
 #restrict to MICU
 
-cohort <- 
-  cohort %>%
-  filter(first_careunit == 'Medical Intensive Care Unit (MICU)')
+if (MICU_only){
+  
+  cohort <- 
+    cohort %>%
+    filter(first_careunit == 'Medical Intensive Care Unit (MICU)')
+  
+}
 
 #rename vars
 
@@ -202,12 +207,28 @@ cohort <- cohort %>%
          started_highflow = case_when(cumsum(highflow) >= 1 ~ 1, TRUE ~ 0)) %>%
   ungroup()
 
-if (appropriate_baseline) {
+if (appropriate_baseline & MICU_only) {
   
-  save(cohort, file='cohort_analysis_appropriate_baseline.Rdata')
+  save(cohort, file='cohort_analysis_appropriate_baseline_MICU_only.Rdata')
   
 } else {
   
-  save(cohort, file='cohort_analysis.Rdata')
+  if (appropriate_baseline & !MICU_only) {
+    
+    save(cohort, file='cohort_analysis_appropriate_baseline.Rdata')
+    
+  } else {
+    
+    if (!appropriate_baseline & !MICU_only) {
+      
+      save(cohort, file='cohort_analysis.Rdata')
+      
+    } else {
+      
+      save(cohort, file='cohort_analysis_MICU_only.Rdata')
+      
+    }
+    
+  }
   
 }
