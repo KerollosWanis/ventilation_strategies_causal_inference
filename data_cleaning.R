@@ -3,7 +3,7 @@ source("./src/functions.R")
 
 #load data
 
-load("./cohort.Rdata")
+cohort <- readRDS("./data/cohort_MICU.rds") 
 
 #change hour indexing
 
@@ -13,20 +13,9 @@ cohort$hr <- cohort$hr + 1
 #to patients who were treated with high flow or noninvasive prior to baseline
 
 appropriate_baseline <- F
-MICU_only <- T
 
 first_hr <- 4
 max_fu <- 720
-
-#restrict to MICU
-
-if (MICU_only){
-  
-  cohort <- 
-    cohort %>%
-    filter(first_careunit == 'Medical Intensive Care Unit (MICU)')
-  
-}
 
 #rename vars
 
@@ -36,29 +25,38 @@ cohort <-
                             gender == 'F' ~ 1),
          medicare_medicaid = case_when(insurance == 'Medicaid' | insurance == 'Medicare' ~ 1,
                                        insurance == 'Other' ~ 0)) %>% 
-  rename(id = subject_id,
+  rename(id = stay_id,
          hour = hr,
          age = anchor_age,
          HR = heart_rate,
          SBP = sbp,
          DBP = dbp,
-         MBP = mbp,
          RR = resp_rate,
          temp = temperature,
          spO2 = spo2,
          fiO2 = fio2,
          glucose = glucose,
-         vasopressor = vasopressor,
-         sofa = sofa_24hours,
-         elixhauser = elixhauser_vanwalraven) 
+         gcs = gcs_min,
+         elixhauser = elixhauser_vanwalraven) %>%
+  arrange(id, hour)
 
-#fix some missing glucose values
+#fix some missing values
 
 cohort <- cohort %>%
   mutate(glucose = case_when(glucose == 999999.0 ~ NA_real_,
-         TRUE ~ glucose)) %>% 
+         TRUE ~ glucose),
+         fiO2 = case_when(hour == 1 & is.na(fiO2) ~ 0,
+                          TRUE ~ fiO2),
+         gcs = case_when(hour == 1 & is.na(gcs) ~ 15,
+                          TRUE ~ gcs),
+         vasopressor = case_when(is.na(vasopressor) ~ 0,
+                                 TRUE ~ as.numeric(vasopressor)))
+
+#carry forward variable values
+
+cohort <- cohort %>%
   group_by(id) %>%
-  fill(glucose) %>%
+  fill(HR, SBP, DBP, RR, temp, spO2, fiO2, glucose, gcs) %>%
   ungroup()
 
 #indicate discharge from icu
@@ -97,13 +95,12 @@ cohort <-
                   HR,
                   SBP,
                   DBP,
-                  MBP,
                   RR,
                   temp,
                   spO2,
                   fiO2,
                   glucose,
-                  sofa,
+                  gcs,
                   vasopressor,
                   elixhauser,
                   invasive,
@@ -119,17 +116,16 @@ cohort <-
   group_by(id) %>%
   mutate(HR = lag(HR),
          SBP = lag(SBP),
-         MBP = lag(MBP),
          RR = lag(RR),
          temp = lag(temp),
          spO2 = lag(spO2),
          fiO2 = lag(fiO2),
          glucose = lag(glucose),
-         sofa = lag(sofa),
+         gcs = lag(gcs),
          vasopressor = lag(vasopressor)) %>%
   ungroup()
 
-#optionally filter to those who have received high flow or noninvasive prior to the first hr
+#optionally filter to those meeting respiratory criteria
 
 if (first_hr > 1 & appropriate_baseline == T) {
   
@@ -137,8 +133,8 @@ if (first_hr > 1 & appropriate_baseline == T) {
     cohort %>%
     filter(id %in% (cohort %>% group_by(id) %>%
                       mutate(meets_criteria = case_when(spO2 <= 90 | 
-                                                          fiO2 >= 40 | 
-                                                          RR >= 30 |
+                                                          fiO2 >= 30 | 
+                                                          RR > 25 |
                                                           highflow == 1 |
                                                           noninvasive == 1 ~ 1, 
                                                         TRUE ~ 0)) %>%
@@ -178,11 +174,35 @@ cohort <-
   cohort %>%
   filter(hour <= max_fu)
 
+# create categories for some variables
+
+cohort <- cohort %>%
+  mutate(race = case_when(
+    race %in% c('AMERICAN INDIAN/ALASKA NATIVE','NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER') ~ 'AMERICAN INDIAN/ALASKA NATIVE',
+    race %in% c('ASIAN', 'ASIAN - ASIAN INDIAN', 'ASIAN - CHINESE',
+                'ASIAN - KOREAN', 'ASIAN - SOUTH EAST ASIAN') ~ 'ASIAN',
+    race %in% c('BLACK/AFRICAN', 'BLACK/AFRICAN AMERICAN', 'BLACK/CAPE VERDEAN',
+                'BLACK/CARIBBEAN ISLAND') ~ 'BLACK/AFRICAN AMERICAN',
+    race %in% c('HISPANIC OR LATINO', 'HISPANIC/LATINO - CENTRAL AMERICAN', 'HISPANIC/LATINO - DOMINICAN', 'HISPANIC/LATINO - COLUMBIAN',
+                'HISPANIC/LATINO - GUATEMALAN', 'HISPANIC/LATINO - HONDURAN', 'HISPANIC/LATINO - MEXICAN', 'HISPANIC/LATINO - CUBAN',
+                'HISPANIC/LATINO - PUERTO RICAN', 'HISPANIC/LATINO - SALVADORAN', 'PORTUGUESE', 'SOUTH AMERICAN') ~ 'HISPANIC/LATINO',
+    race %in% c('OTHER', 'MULTIPLE RACE/ETHNICITY') ~ 'OTHER',
+    race %in% c('WHITE', 'WHITE - BRAZILIAN', 'WHITE - EASTERN EUROPEAN', 
+                'WHITE - OTHER EUROPEAN', 'WHITE - RUSSIAN') ~ 'WHITE',
+    race %in% c('PATIENT DECLINED TO ANSWER', 'UNKNOWN', 'UNABLE TO OBTAIN') ~ 'UNKNOWN'
+  ),
+  gcs = as_factor(
+    case_when(
+      gcs >= 13 ~ 'mild',
+      gcs >= 9 & gcs < 13 ~ 'moderate',
+      gcs < 9 ~ 'severe'
+    )))
+
 #filter to patients with complete baseline information
 
 cohort <- 
   cohort %>% 
-  filter(!race %in% c('UNKNOWN', 'UNABLE TO OBTAIN')) %>%
+  filter(!race == 'UNKNOWN') %>%
   mutate(race = as.factor(race))
 
 cohort <- 
@@ -192,12 +212,10 @@ cohort <-
                                (is.na(HR) | 
                                   is.na(SBP) |
                                   is.na(DBP) |
-                                  is.na(MBP) |
                                   is.na(RR) |
                                   is.na(spO2) |
                                   is.na(temp) |
                                   is.na(glucose) |
-                                  is.na(sofa) |
                                   is.na(elixhauser))) %>% {.$id}))
 
 cohort <- cohort %>% 
@@ -207,28 +225,12 @@ cohort <- cohort %>%
          started_highflow = case_when(cumsum(highflow) >= 1 ~ 1, TRUE ~ 0)) %>%
   ungroup()
 
-if (appropriate_baseline & MICU_only) {
+if (appropriate_baseline) {
   
-  save(cohort, file='cohort_analysis_appropriate_baseline_MICU_only.Rdata')
+  save(cohort, file='cohort_analysis_appropriate_baseline.Rdata')
   
 } else {
   
-  if (appropriate_baseline & !MICU_only) {
+  save(cohort, file='cohort_analysis.Rdata')
     
-    save(cohort, file='cohort_analysis_appropriate_baseline.Rdata')
-    
-  } else {
-    
-    if (!appropriate_baseline & !MICU_only) {
-      
-      save(cohort, file='cohort_analysis.Rdata')
-      
-    } else {
-      
-      save(cohort, file='cohort_analysis_MICU_only.Rdata')
-      
-    }
-    
-  }
-  
 }
