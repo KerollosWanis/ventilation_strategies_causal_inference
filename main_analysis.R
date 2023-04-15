@@ -122,7 +122,7 @@ load("./cohort_analysis.Rdata")
 
 
 cohort <- cohort %>% 
-  mutate(resp_distress = case_when(spO2 <= 90 | noninvasive == 1 | highflow == 1 | RR >= 30 ~ 1, 
+  mutate(resp_distress = case_when(noninvasive == 1 | highflow == 1 | RR >= 30 | fiO2 >= 40 ~ 1, 
                                    TRUE ~ 0))
 
 #############################
@@ -239,7 +239,7 @@ save(tt2_save_results_dni, file='tt2_dont_start_until_results_with_data.Rdata')
 load("./cohort_analysis_appropriate_baseline.Rdata")
 
 cohort <- cohort %>% 
-  mutate(resp_distress = case_when(spO2 <= 90 | noninvasive == 1 | highflow == 1 | RR >= 30 ~ 1, 
+  mutate(resp_distress = case_when(noninvasive == 1 | highflow == 1 | RR >= 30 | fiO2 >= 40 ~ 1, 
                                    TRUE ~ 0))
 
 #############################

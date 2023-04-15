@@ -3,7 +3,7 @@ source("./src/functions.R")
 
 #load data
 
-cohort <- readRDS("./data/cohort_MICU.rds") 
+cohort <- readRDS("./data/cohort_MSICU.rds") 
 
 #change hour indexing
 
@@ -40,17 +40,19 @@ cohort <-
          elixhauser = elixhauser_vanwalraven) %>%
   arrange(id, hour)
 
-#fix some missing values
+#fix some missing values and fiO2 var
 
 cohort <- cohort %>%
-  mutate(glucose = case_when(glucose == 999999.0 ~ NA_real_,
-         TRUE ~ glucose),
-         fiO2 = case_when(hour == 1 & is.na(fiO2) ~ 0,
-                          TRUE ~ fiO2),
+  mutate(fiO2 = case_when(fiO2 < 21 ~ 21, 
+                          #fiO2 miscoded as o2_flow
+                          is.na(fiO2) & highflow==0 & noninvasive==0 & invasive==0 & o2_flow > 25 & o2_flow <= 100 ~ o2_flow,
+                          #Reliability of methods to estimate the fraction of inspired oxygen in patients with acute respiratory failure breathing through non-rebreather reservoir bag oxygen mask.Thorax 2020;75:805–807
+                          is.na(fiO2) & highflow==0 & noninvasive==0 & invasive==0 & o2_flow >= 0 & o2_flow <= 25 ~ 21+(o2_flow*3),
+                          is.na(fiO2) & (highflow==1 | noninvasive==1 | invasive==1) & o2_flow >= 0 ~ pmin(21+(o2_flow*3), 100),
+                          TRUE ~ fiO2)) %>%
+  mutate(glucose = case_when(glucose == 999999.0 ~ NA_real_, TRUE ~ glucose),
          gcs = case_when(hour == 1 & is.na(gcs) ~ 15,
-                          TRUE ~ gcs),
-         vasopressor = case_when(is.na(vasopressor) ~ 0,
-                                 TRUE ~ as.numeric(vasopressor)))
+                         TRUE ~ gcs))
 
 #carry forward variable values
 
@@ -132,9 +134,8 @@ if (first_hr > 1 & appropriate_baseline == T) {
   cohort <- 
     cohort %>%
     filter(id %in% (cohort %>% group_by(id) %>%
-                      mutate(meets_criteria = case_when(spO2 <= 90 | 
-                                                          fiO2 >= 30 | 
-                                                          RR > 25 |
+                      mutate(meets_criteria = case_when(RR >= 30 |
+                                                          fiO2 >= 40 | 
                                                           highflow == 1 |
                                                           noninvasive == 1 ~ 1, 
                                                         TRUE ~ 0)) %>%
@@ -214,6 +215,7 @@ cohort <-
                                   is.na(DBP) |
                                   is.na(RR) |
                                   is.na(spO2) |
+                                  is.na(fiO2) |
                                   is.na(temp) |
                                   is.na(glucose) |
                                   is.na(elixhauser))) %>% {.$id}))

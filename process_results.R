@@ -32,7 +32,7 @@ tt1_start_by_hour_graph <-
       ylab('') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 
@@ -63,7 +63,7 @@ tt1_dont_start_until_graph <-
       ylab('') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 # combine graphs for target trial 1
@@ -76,7 +76,7 @@ annotate_figure(target_trial_1,
                 left = text_grob('30-day cumulative incidence of death', 
                                  color = "black", rot = 90))
 
-ggsave("Target_trial_1_graph.png", dpi=600)
+ggsave("Figure E4.png", dpi=600)
 
 
 #################################
@@ -110,7 +110,7 @@ tt2_start_by_hour_graph <-
       ylab('') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 
@@ -141,7 +141,7 @@ tt2_dont_start_until_graph <-
       ylab('') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 # combine graphs for target trial 2
@@ -154,7 +154,7 @@ annotate_figure(target_trial_2,
                 left = text_grob('30-day cumulative incidence of death', 
                                  color = "black", rot = 90))
 
-ggsave("Target_trial_2_graph.png", dpi=600)
+ggsave("Figure E5.png", dpi=600)
 
 
 #################################
@@ -188,7 +188,7 @@ tt3_start_by_hour_graph <-
       ylab('') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 
@@ -219,7 +219,7 @@ tt3_dont_start_until_graph <-
       ylab('') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 # combine graphs for target trial 3
@@ -232,7 +232,7 @@ annotate_figure(target_trial_3,
                 left = text_grob('30-day cumulative incidence of death', 
                                  color = "black", rot = 90))
 
-ggsave("Target_trial_3_graph.png", dpi=600)
+ggsave("Figure E6.png", dpi=600)
 
 
 ############################################
@@ -274,7 +274,7 @@ early <-
       ggtitle('Early intubation') +
       theme_classic() +
       theme(text = element_text(size=18), legend.position="none") +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 delay <- 
@@ -305,7 +305,7 @@ delay <-
       ggtitle('Delay intubation') +
       theme_classic() +
       theme(text = element_text(size=18), legend.position="none") +
-      ylim(c(0.075,0.20))
+      ylim(c(0.01,0.25))
   }
 
 # combine graphs
@@ -388,7 +388,7 @@ data.frame(
       ylim(c(-0.05,0.1))
   }
 
-ggsave("Target_trial_risk_differences.png", dpi=900)
+ggsave("Figure 2.png", dpi=900)
 
 #################################
 # Target Trial 1 intubation outcome
@@ -421,12 +421,12 @@ tt1_dont_start_until_intubation_outcome_graph <-
       ylab('30-day cumulative incidence of death or intubation') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.1,0.35))
+      ylim(c(0.1,0.4))
   }
 
 tt1_dont_start_until_intubation_outcome_graph
 
-ggsave("Target_trial_1_intubation_outcome_graph.png", dpi=600)
+ggsave("Figure E9.png", dpi=600)
 
 #################################
 # Target Trial 2 intubation outcome
@@ -459,12 +459,12 @@ tt2_dont_start_until_intubation_outcome_graph <-
       ylab('30-day cumulative incidence of death or intubation') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.1,0.35))
+      ylim(c(0.1,0.4))
   }
 
 tt2_dont_start_until_intubation_outcome_graph
 
-ggsave("Target_trial_2_intubation_outcome_graph.png", dpi=600)
+ggsave("Figure E10.png", dpi=600)
 
 #################################
 # Target Trial 3 intubation outcome
@@ -497,9 +497,9 @@ tt3_dont_start_until_intubation_outcome_graph <-
       ylab('30-day cumulative incidence of death or intubation') +
       theme_classic() +
       scale_x_continuous(breaks = seq(8,48,8)) +
-      ylim(c(0.1,0.35))
+      ylim(c(0.1,0.4))
   }
 
 tt3_dont_start_until_intubation_outcome_graph
 
-ggsave("Target_trial_3_intubation_outcome_graph.png", dpi=600)
+ggsave("Figure E11.png", dpi=600)
