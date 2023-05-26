@@ -1,7 +1,7 @@
 # Emulating target trials comparing early and delayed intubation strategies
 
 # Introduction
-Here we provide the code to reproduce the analysis described in: 
+Here we provide the code to reproduce the analysis described in: Wanis KN, Madenci AL, Hao S, Moukheiber M, Moukheiber L, Moukheiber D, Moukheiber S, Young JG, Celi LA. Emulating target trials comparing early and delayed intubation strategies. Chest.
 
 ### Citation
 
