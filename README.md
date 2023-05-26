@@ -3,10 +3,6 @@
 # Introduction
 Here we provide the code to reproduce the analysis described in: Wanis KN, Madenci AL, Hao S, Moukheiber M, Moukheiber L, Moukheiber D, Moukheiber S, Young JG, Celi LA. Emulating target trials comparing early and delayed intubation strategies. Chest.
 
-### Citation
-
-> 
-
 # Organization
 - `main_analysis.R` — R file which reproduces the main analyses by running the code contained in `src`.
 - `data_cleaning.R` — R file which prepares the data for analysis.
